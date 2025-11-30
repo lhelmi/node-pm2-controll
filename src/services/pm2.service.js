@@ -1,66 +1,47 @@
 import pm2 from "pm2";
+import { promisify } from "util";
 
-function connectPM2() {
-    return new Promise((resolve, reject) => {
-        pm2.connect(err => err ? reject(err) : resolve());
-    });
+const pm2Connect = promisify(pm2.connect).bind(pm2);
+const pm2List = promisify(pm2.list).bind(pm2);
+const pm2Start = promisify(pm2.start).bind(pm2);
+const pm2Stop = promisify(pm2.stop).bind(pm2);
+const pm2Restart = promisify(pm2.restart).bind(pm2);
+
+async function ensurePM2Connected() {
+    await pm2Connect();
 }
 
 export async function list() {
-    await connectPM2();
-    return new Promise((resolve, reject) => {
-        pm2.list((err, list) => err ? reject(err) : resolve(list));
-    });
+    await ensurePM2Connected();
+    return await pm2List();
 }
 
 export async function start(name) {
-    await connectPM2();
-    return new Promise((resolve, reject) => {
-        pm2.start(name, err => err ? reject(err) : resolve());
-    });
+    await ensurePM2Connected();
+    return await pm2Start(name);
 }
 
 export async function stop(name) {
-    await connectPM2();
-    return new Promise((resolve, reject) => {
-        pm2.stop(name, err => err ? reject(err) : resolve());
-    });
+    await ensurePM2Connected();
+    return await pm2Stop(name);
 }
 
 export async function restart(name) {
-    await connectPM2();
-    return new Promise((resolve, reject) => {
-        pm2.restart(name, err => err ? reject(err) : resolve());
-    });
+    await ensurePM2Connected();
+    return await pm2Restart(name);
 }
 
-export function startServiceByPath(script, name) {
-    return new Promise(async (resolve, reject) => {
-        try {
-            await connect();
-            pm2.start({ script, name }, (err) => {
-                if (err) return reject(err);
-                resolve({ message: `Service '${name}' started from path` });
-            });
-        } catch (e) {
-            reject(e);
-        }
-    });
+export async function startServiceByPath(script, name) {
+    await ensurePM2Connected();
+    await pm2Start({ script, name });
+    return { message: `Service '${name}' started from path` };
 }
 
-export function registerService(options) {
-    return new Promise(async (resolve, reject) => {
-        try {
-            await connect();
-            pm2.start(options, (err, proc) => {
-                if (err) return reject(err);
-                resolve({
-                    message: `Service '${options.name}' registered`,
-                    pm2_process: proc
-                });
-            });
-        } catch (e) {
-            reject(e);
-        }
-    });
+export async function registerService(options) {
+    await ensurePM2Connected();
+    const proc = await pm2Start(options);
+    return {
+        message: `Service '${options.name}' registered`,
+        pm2_process: proc
+    };
 }
